@@ -1,0 +1,336 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyOrcMZgB5J9pCJu95aRNdqe",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/ajaykumar080286/GENAI_LangChain/blob/main/21_tool_calling_in_langchain\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 512,
+      "metadata": {
+        "id": "rjUeTOgTCmky"
+      },
+      "outputs": [],
+      "source": [
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "#!pip install -q langchain-openai langchain-core requests\n",
+        "import os\n",
+        "os.environ[\"OPENAI_API_KEY\"]=\"##\""
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from langchain_openai import ChatOpenAI\n",
+        "from langchain_core.tools import tool\n",
+        "from langchain_core.messages import HumanMessage\n",
+        "import requests"
+      ],
+      "metadata": {
+        "id": "uSfrh9nWCxyA"
+      },
+      "execution_count": 513,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# tool create\n",
+        "from langchain_core.tools import InjectedToolArg\n",
+        "from typing import Annotated\n",
+        "\n",
+        "@tool\n",
+        "def get_conversion_factor(base_currency: str, target_currency: str) -> float:\n",
+        "  \"\"\"\n",
+        "  This function fetches the currency conversion factor between a given base currency and a target currency\n",
+        "  \"\"\"\n",
+        "  url = f'https://v6.exchangerate-api.com/v6/c754eab14ffab33112e380ca/pair/{base_currency}/{target_currency}'\n",
+        "\n",
+        "  response = requests.get(url)\n",
+        "\n",
+        "  return response.json()\n",
+        "\n",
+        "@tool\n",
+        "def convert(base_currency_value: int, conversion_rate: Annotated[float, InjectedToolArg]) -> float:\n",
+        "  \"\"\"\n",
+        "  given a currency conversion rate this function calculates the target currency value from a given base currency value\n",
+        "  \"\"\"\n",
+        "\n",
+        "  return base_currency_value * conversion_rate\n"
+      ],
+      "metadata": {
+        "id": "kgib3MVkF8_t"
+      },
+      "execution_count": 514,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "llm=ChatOpenAI(model=\"gpt-4o\")"
+      ],
+      "metadata": {
+        "id": "pFH2hZioHPxM"
+      },
+      "execution_count": 515,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "llm_with_tools = llm.bind_tools([get_conversion_factor, convert])"
+      ],
+      "metadata": {
+        "id": "7MjdvGCfLlaZ"
+      },
+      "execution_count": 516,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "messages = [HumanMessage('What is the conversion factor between USD and INR, and based on that can you convert 20 USD to INR and call all tools parallel')]"
+      ],
+      "metadata": {
+        "id": "YAjoVcYAHfJa"
+      },
+      "execution_count": 544,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "messages"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "QTmHrDcTLsQt",
+        "outputId": "c9611da6-1f74-4bd6-edaf-959d152a4220"
+      },
+      "execution_count": 545,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "[HumanMessage(content='What is the conversion factor between USD and INR, and based on that can you convert 20 USD to INR and call all tools parallel', additional_kwargs={}, response_metadata={})]"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 545
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "ai_message =llm_with_tools.invoke(messages)"
+      ],
+      "metadata": {
+        "id": "lYIeLIdkHnAd"
+      },
+      "execution_count": 546,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "ai_message"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "swi6PQC9Qfja",
+        "outputId": "fe851c21-6065-4f52-a86b-dc97c0e8201a"
+      },
+      "execution_count": 547,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "AIMessage(content='', additional_kwargs={'refusal': None}, response_metadata={'token_usage': {'completion_tokens': 53, 'prompt_tokens': 123, 'total_tokens': 176, 'completion_tokens_details': {'accepted_prediction_tokens': 0, 'audio_tokens': 0, 'reasoning_tokens': 0, 'rejected_prediction_tokens': 0}, 'prompt_tokens_details': {'audio_tokens': 0, 'cache_write_tokens': None, 'cached_tokens': 0}}, 'model_provider': 'openai', 'model_name': 'gpt-4o-2024-08-06', 'system_fingerprint': 'fp_936db6157f', 'id': 'chatcmpl-Ek5ZUEYKhMn1uqHDqziHnUZXjGrLY', 'service_tier': 'default', 'finish_reason': 'tool_calls', 'logprobs': None}, id='lc_run--01a1d9aa-cc78-709f-a27b-7ededfd3a202-0', tool_calls=[{'name': 'get_conversion_factor', 'args': {'base_currency': 'USD', 'target_currency': 'INR'}, 'id': 'call_4zTcj54Teb8faIGTmaCFwyxF', 'type': 'tool_call'}, {'name': 'convert', 'args': {'base_currency_value': 20}, 'id': 'call_4FW6PfN1MiijiwszJ9h7mFDJ', 'type': 'tool_call'}], invalid_tool_calls=[], usage_metadata={'input_tokens': 123, 'output_tokens': 53, 'total_tokens': 176, 'input_token_details': {'audio': 0, 'cache_read': 0}, 'output_token_details': {'audio': 0, 'reasoning': 0}})"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 547
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "tools=ai_message.tool_calls\n",
+        "tools"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "szThJPjZi0zs",
+        "outputId": "b1ed07f5-9666-4c3a-f886-1a9d83918605"
+      },
+      "execution_count": 548,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "[{'name': 'get_conversion_factor',\n",
+              "  'args': {'base_currency': 'USD', 'target_currency': 'INR'},\n",
+              "  'id': 'call_4zTcj54Teb8faIGTmaCFwyxF',\n",
+              "  'type': 'tool_call'},\n",
+              " {'name': 'convert',\n",
+              "  'args': {'base_currency_value': 20},\n",
+              "  'id': 'call_4FW6PfN1MiijiwszJ9h7mFDJ',\n",
+              "  'type': 'tool_call'}]"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 548
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import json"
+      ],
+      "metadata": {
+        "id": "Tc7AQgaCi8zy"
+      },
+      "execution_count": 549,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import json\n",
+        "\n",
+        "for tool_call in tools:\n",
+        "  if tool_call[\"name\"] == \"get_conversion_factor\":\n",
+        "    total_msg = get_conversion_factor.invoke(tool_call)\n",
+        "    messages.append(total_msg)\n",
+        "    # Parse the JSON string content into a dictionary\n",
+        "    data = json.loads(total_msg.content)\n",
+        "    conversion_rate = data[\"conversion_rate\"]\n",
+        "    #print(conversion_rate)\n",
+        "\n",
+        "  if tool_call[\"name\"] == \"convert\":\n",
+        "    # Inject the retrieved conversion rate into the tool arguments\n",
+        "    tool_call[\"args\"][\"conversion_rate\"] = conversion_rate\n",
+        "    second_tool_result = convert.invoke(tool_call)\n",
+        "    messages.append(second_tool_result)\n",
+        "\n"
+      ],
+      "metadata": {
+        "id": "FuiYaTGuj7g1"
+      },
+      "execution_count": 550,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "91f00f83",
+        "outputId": "98a13abc-dcc8-443b-999f-6cc6deee92bf"
+      },
+      "source": [
+        "messages"
+      ],
+      "execution_count": 551,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "[HumanMessage(content='What is the conversion factor between USD and INR, and based on that can you convert 20 USD to INR and call all tools parallel', additional_kwargs={}, response_metadata={}),\n",
+              " ToolMessage(content='{\"result\": \"success\", \"documentation\": \"https://www.exchangerate-api.com/docs\", \"terms_of_use\": \"https://www.exchangerate-api.com/terms\", \"time_last_update_unix\": 1794614401, \"time_last_update_utc\": \"Sat, 14 Nov 2026 00:00:01 +0000\", \"time_next_update_unix\": 1794700801, \"time_next_update_utc\": \"Sun, 15 Nov 2026 00:00:01 +0000\", \"base_code\": \"USD\", \"target_code\": \"INR\", \"conversion_rate\": 94.2897}', name='get_conversion_factor', tool_call_id='call_4zTcj54Teb8faIGTmaCFwyxF'),\n",
+              " ToolMessage(content='1885.7939999999999', name='convert', tool_call_id='call_4FW6PfN1MiijiwszJ9h7mFDJ')]"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 551
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Reconstruct a clean and correctly structured message history\n",
+        "clean_messages = [\n",
+        "    messages[0],         # 1. The original HumanMessage query\n",
+        "    ai_message,          # 2. The AIMessage containing the parallel tool calls\n",
+        "    total_msg,           # 3. The ToolMessage for get_conversion_factor\n",
+        "    second_tool_result   # 4. The ToolMessage for convert\n",
+        "]\n",
+        "\n",
+        "# Invoke the model to get the final response using the clean history\n",
+        "response = llm_with_tools.invoke(clean_messages)\n",
+        "response.content"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 36
+        },
+        "id": "vdKycvsokMd2",
+        "outputId": "2a6afd3a-d473-4395-aea9-94b4ed543722"
+      },
+      "execution_count": 552,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "'The conversion factor between USD and INR is approximately 94.2897. Based on this conversion rate, 20 USD would be approximately 1885.79 INR.'"
+            ],
+            "application/vnd.google.colaboratory.intrinsic+json": {
+              "type": "string"
+            }
+          },
+          "metadata": {},
+          "execution_count": 552
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "metadata": {
+        "id": "3WsW0g5KnwWt"
+      },
+      "execution_count": 552,
+      "outputs": []
+    }
+  ]
+}
